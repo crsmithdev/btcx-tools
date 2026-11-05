@@ -70,6 +70,7 @@ toolkit.
 Open a [new finding](https://github.com/crsmithdev/btcx-tools/issues/new?template=finding.yml) issue, or add
 a row to `FINDINGS` in `btcx/findings.py` and to the table above. `uv run pytest` runs every check and the
 user-error cases; CI also runs `ruff`. The rules for changes are in [PRINCIPLES.md](PRINCIPLES.md).
+aleph reviews pull requests.
 
 ## Licence
 
