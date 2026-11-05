@@ -2,8 +2,14 @@
 name = "btcx"
 version = "0.1.0"
 description = "Analysis tools for the btcx-files ARG"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = ["numpy>=1.26"]
+
+[project.urls]
+Repository = "https://github.com/crsmithdev/btcx-tools"
+Game = "https://github.com/suebtwist/btcx-files"
 
 [project.scripts]
 btcx = "btcx.cli:main"

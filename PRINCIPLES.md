@@ -4,9 +4,9 @@ These rules decide design, review and code changes in btcx-tools. When two
 rules conflict, the earlier rule wins. Each rule has a test that decides a
 case. A rule that decides no case in a month is removed.
 
-Rules 5, 8, 9 and 10-13 come from aleph's PRINCIPLES.md. The others exist because
-the toolkit is public, it is used inside a game, and its readers find
-LLM-written padding quickly and do not trust it.
+Rules 5 and 8-13 come from aleph's PRINCIPLES.md. The others exist because
+the game's players use the toolkit in public, and they do not trust
+LLM-written padding.
 
 ## The toolkit
 
@@ -31,8 +31,7 @@ LLM-written padding quickly and do not trust it.
    Test: delete the sentence, comment or line. If the reader loses no fact
    and no behaviour, it fails this rule.
 
-4. **Professional code.** The code reads as a maintained library, not a
-   notebook dump:
+4. **Professional code.** The code reads as a maintained library:
    - A user error (wrong file, missing input, bad value) prints one line
      that says what to do and exits non-zero. A traceback is a bug.
    - Paths do not depend on the current directory.

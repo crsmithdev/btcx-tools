@@ -1,0 +1,32 @@
+name: New finding
+description: A result from a player's post that `btcx verify` should check
+title: "Finding: "
+body:
+  - type: textarea
+    id: claim
+    attributes:
+      label: Claim
+      description: One sentence with the numbers, as it would read in the README table.
+    validations:
+      required: true
+  - type: input
+    id: credit
+    attributes:
+      label: Credit
+      description: The player who posted it first.
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: Link
+      description: The issue, comment or PR where it first appeared.
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: How to check it
+      description: The file, the bytes or command, and the result to expect.
+    validations:
+      required: true
