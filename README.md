@@ -10,7 +10,7 @@ published files, which are fetched at commit `2d55483` and checked by SHA-256.
 Needs Python 3.11 or later and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-git clone <this repo> && cd btcx-tools
+git clone https://github.com/crsmithdev/btcx-tools && cd btcx-tools
 uv run btcx fetch     # download the published files to data/
 uv run btcx verify    # reproduce every finding; exit status 1 if one fails
 ```
@@ -49,8 +49,8 @@ File 62 is `20180208_1142.bin`. `uv run btcx unmask data/20180208_1142.bin --ply
 | File 62 unmasked by four B400 LFSRs: 184,148 rows of 27 float32, read as a Gaussian splat | NameLucky2205, [#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6185551572) |
 | File 62's key is in its separators at records 2048-2055 | Helo3301, [#12](https://github.com/suebtwist/btcx-files/issues/12) |
 | In `003_state.bin`, type 50 records are strokes and type 51 records are signs that place them; all 204 stroke references resolve | Helo3301, [#15](https://github.com/suebtwist/btcx-files/issues/15) |
-| A blind phase search finds file 62's four start states from words 100,000-104,095 | btcx-tools |
-| No B400 key outlier in `306_state.bin` in the first 4,096 words after each countdown run | btcx-tools |
+| A blind phase search finds file 62's four start states from words 100,000-104,095 | btcx-tools, [0c046ee](https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817) |
+| No B400 key outlier in `306_state.bin` in the first 4,096 words after each countdown run | btcx-tools, [0c046ee](https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817) |
 
 NameLucky2205 posted the first PLY exporter with the decode
 ([#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6185551572)), and benvan posted the
