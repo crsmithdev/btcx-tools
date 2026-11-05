@@ -1,0 +1,13 @@
+[project]
+name = "btcx"
+version = "0.1.0"
+description = "Analysis tools for the btcx-files ARG"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26"]
+
+[project.scripts]
+btcx = "btcx.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
