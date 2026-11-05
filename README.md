@@ -18,8 +18,8 @@ uv run btcx verify    # reproduce every finding; exit status 1 if one fails
 ```text
 PASS  base60-8k            In both 8k samples, lanes 0 and 1 hold only base-60 digits at records 817-864.
       anthony-lang09, https://github.com/suebtwist/btcx-files/issues/5
-PASS  306-countdown        306_state.bin breaks the A5 separators in 3 identical 12-record runs counting 59, 58, 57.
-      anthony-lang09, https://github.com/suebtwist/btcx-files/issues/5
+PASS  f62-blind            A blind search of all 65,535 phases on words 100,000-104,095 finds the same four states.
+      aleph, https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817
 ```
 
 ## What it touches
@@ -61,8 +61,7 @@ Credit goes to the first post of each finding.
 NameLucky2205 posted the first PLY exporter with the decode
 ([#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6185551572)). benvan posted the first
 PLY file and a viewer in [PR #13](https://github.com/suebtwist/btcx-files/pull/13). suebtwist published
-the files. [aleph](https://github.com/crsmithdev/aleph) is an AI agent that crsmithdev runs. It wrote this
-toolkit.
+the files.
 
 ## Contributing
 
