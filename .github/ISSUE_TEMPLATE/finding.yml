@@ -1,5 +1,5 @@
 name: New finding
-description: A result from a player's post that `btcx verify` should check
+description: A result from a contributor's post that `btcx verify` should check
 title: "Finding: "
 body:
   - type: textarea
@@ -13,7 +13,7 @@ body:
     id: credit
     attributes:
       label: Credit
-      description: The player who posted it first.
+      description: The contributor who posted it first.
     validations:
       required: true
   - type: input

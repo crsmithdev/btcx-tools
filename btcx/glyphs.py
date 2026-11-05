@@ -1,6 +1,6 @@
 """003_state.bin, "the writing file": a base-60 stroke library, signs and placements.
 
-Layout (found by players in btcx-files #5 and #15; field meanings are inferred):
+Layout (found by contributors in btcx-files #5 and #15; field meanings are inferred):
 23 rows x 5 lanes x 60 bytes. Byte 0 of each 60-byte block is a header; the rest of each
 lane, joined over the rows, is one stream. A record runs across the 5 streams in parallel
 and ends with a checksum: the sum of every other byte of the record, mod 60.

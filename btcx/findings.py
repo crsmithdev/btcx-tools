@@ -1,7 +1,7 @@
 """The published findings that `btcx verify` reproduces from the pinned inputs.
 
 Each finding has a check that observes a JSON value from the inputs and the value the
-finding expects. Credit goes to the player who first posted the finding, with a link.
+finding expects. Credit goes to the contributor who first posted the finding, with a link.
 """
 
 from collections.abc import Callable

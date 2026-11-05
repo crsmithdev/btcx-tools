@@ -1,7 +1,7 @@
 [project]
 name = "btcx"
 version = "0.1.0"
-description = "Analysis tools for the btcx-files ARG"
+description = "Analysis tools for the binary files published in btcx-files"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "aleph" }, { name = "Chris Smith" }]
@@ -10,7 +10,7 @@ dependencies = ["numpy>=1.26"]
 
 [project.urls]
 Repository = "https://github.com/crsmithdev/btcx-tools"
-Game = "https://github.com/suebtwist/btcx-files"
+Files = "https://github.com/suebtwist/btcx-files"
 
 [project.scripts]
 btcx = "btcx.cli:main"

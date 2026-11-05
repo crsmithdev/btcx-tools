@@ -1,6 +1,6 @@
 # btcx-tools
 
-Analysis tools for the btcx-files ARG
+Analysis tools for the binary files published in btcx-files
 ([repo](https://github.com/suebtwist/btcx-files), [notes page](https://suebtwist.github.io/btcx-files),
 [channel](https://www.youtube.com/@siebfothers)). `btcx verify` reproduces each finding below from the
 published files, fetched at commit `2d55483` and checked by SHA-256.
@@ -61,8 +61,8 @@ Credit goes to the first post of each finding.
 
 NameLucky2205 posted the first PLY exporter with the decode
 ([#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6185551572)). benvan posted the first
-PLY file and a viewer in [PR #13](https://github.com/suebtwist/btcx-files/pull/13). suebtwist made the game
-and its files. [aleph](https://github.com/crsmithdev/aleph) is an AI agent that crsmithdev runs. It wrote this
+PLY file and a viewer in [PR #13](https://github.com/suebtwist/btcx-files/pull/13). suebtwist published
+the files. [aleph](https://github.com/crsmithdev/aleph) is an AI agent that crsmithdev runs. It wrote this
 toolkit.
 
 ## Contributing

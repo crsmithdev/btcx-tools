@@ -16,5 +16,5 @@ The names the code and docs use. One thing has one name.
 | file 62 | `20180208_1142.bin`. |
 | splat row | 27 float32 of file 62's plaintext, read as one 3D Gaussian. |
 | stroke, sign, placement | `003_state.bin` record types 50, 51 and 52: a pen path, a set of placed strokes, a sign in a row. |
-| finding | A claim from a player's post, with credit, a link and a check that `btcx verify` runs. |
+| finding | A claim from a contributor's post, with credit, a link and a check that `btcx verify` runs. |
 | pinned input | A published file fetched at the pinned commit and checked by SHA-256. The notes page is not pinned. |

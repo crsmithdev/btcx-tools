@@ -1,6 +1,6 @@
 """File 62: an LFSR-masked payload that reads as 3D Gaussian splat rows of 27 float32.
 
-Field layout (inferred by players in btcx-files #5 and #12, not given by the creator):
+Field layout (inferred by contributors in btcx-files #5 and #12, not given by the creator):
 0-2 position, 3-5 log scale, 6-9 rotation quaternion (w x y z), 10 opacity logit,
 11 DC colour (one channel), 12-26 SH rest (one channel, degree 3).
 """

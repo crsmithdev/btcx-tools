@@ -1,4 +1,4 @@
-"""Analysis tools for the btcx-files ARG. Inputs are in data/ and results go to out/."""
+"""Analysis tools for the binary files published in btcx-files. Inputs are in data/ and results go to out/."""
 
 import argparse
 import json

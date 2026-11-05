@@ -5,7 +5,7 @@ rules conflict, the earlier rule wins. Each rule has a test that decides a
 case. A rule that decides no case in a month is removed.
 
 Rules 5 and 8-13 come from aleph's PRINCIPLES.md. The others exist because
-the game's players use the toolkit in public, and they do not trust
+contributors use the toolkit in public, and they do not trust
 LLM-written padding.
 
 ## The toolkit
@@ -17,7 +17,7 @@ LLM-written padding.
    Test: a change fails this rule when it adds a statement of fact that no
    check reproduces and no grade qualifies.
 
-2. **Credit is exact.** Each finding names the player who found it and links
+2. **Credit is exact.** Each finding names the contributor who found it and links
    the issue, comment or PR where it first appeared.
    Test: a change fails this rule when it adds a finding with no name or no
    link.
@@ -60,11 +60,11 @@ LLM-written padding.
    Test: a change fails this rule when a result depends on an input that is
    neither pinned nor named as unpinned.
 
-7. **Out of character.** The toolkit speaks as a player's tool, not as a
-   voice inside the game. It does not try to identify the people who made
-   the game.
-   Test: a change fails this rule when it writes in-world text in the
-   toolkit's own voice, or collects data about the creators as people.
+7. **Neutral voice.** The toolkit reports what the files contain. It does
+   not write in the voice of the text in the files, and it does not try to
+   identify the people who made them.
+   Test: a change fails this rule when it writes text in the voice of the
+   source material, or collects data about the creators as people.
 
 8. **Structured over text.** A command that produces findings can emit JSON.
    `verify` and the ledger read that JSON; nothing parses printed output.
