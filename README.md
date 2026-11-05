@@ -56,13 +56,14 @@ Credit goes to the first post of each finding.
 | File 62 unmasked by four B400 LFSRs: 184,148 rows of 27 float32, read as a Gaussian splat | NameLucky2205, [#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6185551572) |
 | File 62's key is in its separators at records 2048-2055 | Helo3301, [#12](https://github.com/suebtwist/btcx-files/issues/12) |
 | In `003_state.bin`, type 50 records are strokes and type 51 records are signs that place them; all 204 stroke references resolve | Helo3301, [#15](https://github.com/suebtwist/btcx-files/issues/15) |
-| A blind phase search finds file 62's four start states from words 100,000-104,095 | btcx-tools, [0c046ee](https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817) |
-| No B400 key outlier in `306_state.bin` in the first 4,096 words after each countdown run | btcx-tools, [0c046ee](https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817) |
+| A blind phase search finds file 62's four start states from words 100,000-104,095 | aleph, [0c046ee](https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817) |
+| No B400 key outlier in `306_state.bin` in the first 4,096 words after each countdown run | aleph, [0c046ee](https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817) |
 
 NameLucky2205 posted the first PLY exporter with the decode
 ([#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6185551572)). benvan posted the first
 PLY file and a viewer in [PR #13](https://github.com/suebtwist/btcx-files/pull/13). suebtwist made the game
-and its files.
+and its files. [aleph](https://github.com/crsmithdev/aleph) is an AI agent that crsmithdev runs. It wrote this
+toolkit.
 
 ## Contributing
 

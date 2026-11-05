@@ -148,7 +148,7 @@ FINDINGS = [
     Finding(
         "f62-blind",
         "A blind search of all 65,535 phases on words 100,000-104,095 finds the same four states.",
-        "btcx-tools",
+        "aleph",
         "https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817",
         [lfsr.hex_states(F62_STATES)],
         lambda: _outliers(data.F62, [100_000]),
@@ -156,7 +156,7 @@ FINDINGS = [
     Finding(
         "306-no-b400",
         "306_state.bin shows no B400 mask outlier in the first window after each countdown run.",
-        "btcx-tools",
+        "aleph",
         "https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817",
         [[], [], []],
         lambda: _outliers(data.F306, [318, 59069, 590582]),
