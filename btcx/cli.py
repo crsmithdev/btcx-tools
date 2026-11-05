@@ -1,135 +1,220 @@
+"""Analysis tools for the btcx-files ARG. Inputs are in data/ and results go to out/."""
+
 import argparse
+import json
+import sys
 from pathlib import Path
 
-import numpy as np
+from . import Error, data, glyphs, keysearch, lfsr, notes, splat
+from .container import LANES, Container
+from .findings import FINDINGS
 
-from . import data, glyphs, keysearch, lfsr, notes, splat
-from .container import Container, entropy
-
-OUT = Path("out")
-
-
-def cmd_fetch(a):
-    data.fetch(a.files or None)
+SUPERSPLAT = "https://superspl.at/editor"
 
 
-def cmd_info(a):
-    c = Container(Path(a.file).read_bytes())
-    print(f"version     0x{c.version:02X}")
-    print(f"records     {c.count} (+{c.tail} trailing bytes)")
-    print("lane entropy " + "  ".join(f"{entropy(c.payload[:, l]):.3f}" for l in range(4))
-          + "  bits/byte")
-    an = c.anomalies()
-    print(f"separators  {sum(len(b) for _, b in an)} not A5, in {len(an)} runs")
-    for start, b in an[:12]:
-        print(f"  record {start:>9}  {b.hex(' ').upper()}")
-    if len(an) == 1 and len(an[0][1]) == 8:
-        s = lfsr.states_from_anomaly(an[0][1])
-        print("  as LFSR states (XOR A5, LE pairs): " + " ".join(f"{x:04X}" for x in s))
-    for lo, hi in c.base60_regions():
-        print(f"base-60     words {lo}..{hi} (lanes 0-1 all < 60)")
+def load(path: str) -> bytes:
+    """Read an input file and say whether it is a pinned published file."""
+    body = Path(path).read_bytes()
+    pin = data.pin_of(body)
+    print(f"input       {path} ({f'pinned {pin}' if pin else 'not pinned'})")
+    return body
 
 
-def cmd_unmask(a):
-    c = Container(Path(a.file).read_bytes())
-    if a.states:
-        states = tuple(int(s, 16) for s in a.states.split(","))
+def write(name: str, body: bytes | str) -> None:
+    data.OUT.mkdir(exist_ok=True)
+    path = data.OUT / name
+    if isinstance(body, str):
+        path.write_text(body)
     else:
-        an = c.anomalies()
-        if len(an) != 1 or len(an[0][1]) != 8:
-            raise SystemExit("no single 8-byte separator anomaly to read a key from; pass --states")
-        states = lfsr.states_from_anomaly(an[0][1])
-    plain = lfsr.unmask(c.payload, states)
-    print("states", " ".join(f"{s:04X}" for s in states), f"| entropy {entropy(plain):.3f}")
-    OUT.mkdir(exist_ok=True)
-    stem = OUT / Path(a.file).stem
-    Path(f"{stem}.unmasked.bin").write_bytes(plain.tobytes())
+        path.write_bytes(body)
+    print(f"wrote       {path}")
+
+
+def cmd_fetch(args: argparse.Namespace) -> None:
+    data.fetch(args.names)
+
+
+def cmd_info(args: argparse.Namespace) -> None:
+    container = Container(load(args.file))
+    print(f"version     0x{container.version:02X}")
+    print(f"records     {container.count:,} (+{container.tail} trailing bytes)")
+    lanes = "  ".join(f"{keysearch.byte_entropy(column):.3f}" for column in container.payload.T)
+    print(f"entropy     {lanes}  bits/byte, lanes 0-{LANES - 1}")
+    runs = container.anomalies()
+    print(f"separators  {sum(len(run) for _, run in runs)} not A5, in {len(runs)} runs")
+    for start, run in runs[:12]:
+        print(f"  record {start:>9,}  {run.hex(' ').upper()}")
+    key = container.embedded_key()
+    if key:
+        print(f"  as LFSR start states (XOR A5, little-endian pairs): {' '.join(lfsr.hex_states(key))}")
+    for lo, hi in container.base60_regions():
+        print(f"base-60     words {lo}-{hi} (lanes 0-1 all below 60)")
+
+
+def hex_list(text: str) -> tuple[int, ...]:
     try:
-        r = splat.rows(plain)
-    except ValueError as e:
-        print(f"not splat-shaped: {e}")
-        return
-    err = splat.quaternion_error(r)
-    ok = int((err < 1e-5).sum())
-    print(f"splat rows  {len(r)} x 27 float32, unit quaternions {ok}/{len(r)}, "
-          f"finite {np.isfinite(r).all()}")
-    if a.ply and ok == len(r):
-        splat.save_ply(f"{stem}.ply", r)
-        print(f"wrote {stem}.ply")
+        return tuple(int(s, 16) for s in text.split(","))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a comma-separated list of hex values") from None
 
 
-def cmd_glyphs(a):
-    st, sg, pl = glyphs.parse(Path(a.file).read_bytes())
-    refs = [p["stroke"] for s in sg.values() for p in s["parts"]]
-    print(f"strokes {len(st)}  signs {len(sg)}  placements {len(pl)}  "
-          f"stroke refs resolved {sum(r in st for r in refs)}/{len(refs)}  "
-          f"sign refs resolved {sum(p['sign'] in sg for p in pl)}/{len(pl)}")
-    OUT.mkdir(exist_ok=True)
-    for name, svg in (("strokes", glyphs.sheet_strokes(st)), ("signs", glyphs.sheet_signs(st, sg)),
-                      ("rows", glyphs.sheet_rows(st, sg, pl))):
-        (OUT / f"003_{name}.svg").write_text(svg)
-        print(f"wrote {OUT / f'003_{name}.svg'}")
+def cmd_unmask(args: argparse.Namespace) -> None:
+    unmasked = splat.unmask(Container(load(args.file)), args.states)
+    source = "given" if args.states else "embedded in the separators"
+    print(f"states      {' '.join(lfsr.hex_states(unmasked.states))} ({source})")
+    print(f"entropy     {keysearch.byte_entropy(unmasked.plain):.3f} bits/byte")
+    if unmasked.rows is None:
+        print(f"splat       no: the plaintext is not a whole number of {splat.FIELDS}-float rows")
+    else:
+        print(
+            f"splat       {len(unmasked.rows):,} rows, {unmasked.unit_quaternions:,} unit quaternions, "
+            f"{'all' if unmasked.is_splat else 'not all'} finite and unit"
+        )
+    stem = Path(args.file).stem
+    if args.bin:
+        write(f"{stem}.unmasked.bin", unmasked.plain.tobytes())
+    if args.ply:
+        write(f"{stem}.ply", splat.ply(unmasked))
+        print(f"next        open it in {SUPERSPLAT}; the colour is one channel copied to RGB")
 
 
-def cmd_keysearch(a):
-    c = Container(Path(a.file).read_bytes())
-    start = a.start
-    ct = c.payload[start:start + a.sample]
-    print(f"words {start}..{start + len(ct)}, {a.sample} sampled, B400 LFSR, all 65535 phases")
-    for lane in range(4):
-        scores = keysearch.scan_lane(ct[:, lane], len(ct))
-        top, med = keysearch.best(scores)
-        p, e, z = top[0]
-        state = keysearch.state_at(p, start)
-        flag = "  <-- outlier" if z > a.z else ""
-        print(f"lane {lane}: best entropy {e:.3f} vs median {med:.3f}, z {z:.1f}, "
-              f"state at word 0 {state:04X}{flag}")
+def cmd_keysearch(args: argparse.Namespace) -> None:
+    payload = Container(load(args.file)).payload
+    words, lanes = keysearch.search(payload, args.start, args.words, args.z)
+    print(
+        f"window      words {args.start:,}-{args.start + words - 1:,} ({words:,} words), "
+        f"B400 LFSR, all {lfsr.PERIOD:,} phases per lane"
+    )
+    for i, lane in enumerate(lanes):
+        print(
+            f"lane {i}      best entropy {lane.entropy:.3f}, median {lane.median:.3f}, z {lane.z:.1f}, "
+            f"start state {lane.state:04X}{'  outlier' if lane.outlier else ''}"
+        )
 
 
-def cmd_notes(a):
-    db = str(OUT / "notes.sqlite")
-    OUT.mkdir(exist_ok=True)
-    if a.action == "build":
-        n = notes.build(data.path("index.html").read_text(encoding="utf8"), db)
-        print(f"{n} passages -> {db}")
-    elif a.action == "search":
-        for k, t, s, x, u in notes.search(db, a.term):
-            print(f"{k}:{t:<6} {s[:28]:<28} {x}\n{'':>8}{u}")
-    elif a.action == "pairs":
-        for w, files, lines in notes.pairs(db, a.max_files)[: a.limit]:
-            print(f"\n{w}  ({', '.join(files)})")
-            for k, t, x, u, cited in lines:
-                print(f"  {'cited ' if cited else 'NEW   '}{k}:{t:<6} {x[:90]}")
+def cmd_glyphs(args: argparse.Namespace) -> None:
+    parsed = glyphs.parse(load(args.file))
+    strokes, signs = parsed.unresolved()
+    print(
+        f"records     {sum(parsed.types.values())}: {len(parsed.strokes)} strokes, "
+        f"{len(parsed.signs)} signs, {len(parsed.placements)} placements"
+    )
+    print(f"unresolved  {strokes} stroke references, {signs} sign references")
+    stem = Path(args.file).stem
+    write(f"{stem}.strokes.svg", glyphs.sheet_strokes(parsed))
+    write(f"{stem}.signs.svg", glyphs.sheet_signs(parsed))
+    write(f"{stem}.rows.svg", glyphs.sheet_rows(parsed))
+    print("next        open the SVGs in a browser")
 
 
-def main():
-    p = argparse.ArgumentParser(prog="btcx", description=__doc__)
-    sub = p.add_subparsers(required=True)
-    s = sub.add_parser("fetch", help="download the published files at the pinned commit")
-    s.add_argument("files", nargs="*")
-    s.set_defaults(fn=cmd_fetch)
-    s = sub.add_parser("info", help="header, framing, separator anomalies, entropy")
-    s.add_argument("file")
-    s.set_defaults(fn=cmd_info)
-    s = sub.add_parser("unmask", help="XOR the payload with the B400 LFSR; export a splat")
-    s.add_argument("file")
-    s.add_argument("--states", help="four hex states, e.g. 1F25,02D2,6089,B161")
-    s.add_argument("--ply", action="store_true")
-    s.set_defaults(fn=cmd_unmask)
-    s = sub.add_parser("glyphs", help="render 003_state.bin strokes, signs and rows as SVG")
-    s.add_argument("file")
-    s.set_defaults(fn=cmd_glyphs)
-    s = sub.add_parser("keysearch", help="blind search of every LFSR phase per lane")
-    s.add_argument("file")
-    s.add_argument("--start", type=int, default=0, help="first payload word")
-    s.add_argument("--sample", type=int, default=4096)
-    s.add_argument("--z", type=float, default=8.0, help="outlier threshold")
-    s.set_defaults(fn=cmd_keysearch)
-    s = sub.add_parser("notes", help="index and query the creator's notes page")
-    s.add_argument("action", choices=["build", "search", "pairs"])
-    s.add_argument("term", nargs="?")
-    s.add_argument("--max-files", type=int, default=3)
-    s.add_argument("--limit", type=int, default=40)
-    s.set_defaults(fn=cmd_notes)
-    a = p.parse_args()
-    a.fn(a)
+NOTES_DB = data.OUT / "notes.sqlite"
+
+
+def cmd_notes_build(args: argparse.Namespace) -> None:
+    page = data.read(data.NOTES)
+    data.OUT.mkdir(exist_ok=True)
+    n = notes.build(page.decode("utf8"), NOTES_DB)
+    print(f"{n} passages -> {NOTES_DB} (notes page sha256 {data.digest(page)[:12]}, not pinned)")
+
+
+def cmd_notes_search(args: argparse.Namespace) -> None:
+    for key, time, speaker, text, url in notes.search(NOTES_DB, args.term):
+        print(f"{key}:{time:<6} {speaker[:28]:<28} {text}\n{'':>8}{url}")
+
+
+def cmd_notes_pairs(args: argparse.Namespace) -> None:
+    for term, files, lines in notes.pairs(NOTES_DB, args.max_files)[: args.limit]:
+        print(f"\n{term}  ({', '.join(files)})")
+        for key, time, text, cited in lines:
+            print(f"  {'cited   ' if cited else 'uncited '}{key}:{time:<6} {text[:90]}")
+
+
+def cmd_verify(args: argparse.Namespace) -> None:
+    results = []
+    for f in FINDINGS:
+        r = f.check()
+        results.append(r)
+        if not args.json:
+            print(f"{'PASS' if r['pass'] else 'FAIL'}  {f.id:<20} {f.claim}")
+            print(f"{'':6}{f.credit}, {f.link}")
+            if not r["pass"]:
+                print(f"{'':6}expected {json.dumps(f.expected)}\n{'':6}observed {json.dumps(r['observed'])}")
+    if args.json:
+        print(json.dumps(results, indent=2))
+    failed = sum(not r["pass"] for r in results)
+    if failed:
+        raise Error(f"{failed} of {len(results)} findings did not reproduce")
+
+
+def parser() -> argparse.ArgumentParser:
+    root = argparse.ArgumentParser(prog="btcx", description=__doc__)
+    sub = root.add_subparsers(required=True, metavar="COMMAND")
+
+    cmd = sub.add_parser("fetch", help="download the published inputs to data/ and check their SHA-256")
+    cmd.add_argument("names", nargs="*", metavar="NAME", help="inputs to fetch (default: all)")
+    cmd.set_defaults(fn=cmd_fetch)
+
+    cmd = sub.add_parser("verify", help="reproduce each published finding from the pinned inputs")
+    cmd.add_argument("--json", action="store_true", help="print the results as JSON")
+    cmd.set_defaults(fn=cmd_verify)
+
+    cmd = sub.add_parser("info", help="header, records, separator anomalies, entropy, base-60 regions")
+    cmd.add_argument("file", help="a BTCX container, e.g. data/306_state.bin")
+    cmd.set_defaults(fn=cmd_info)
+
+    cmd = sub.add_parser("unmask", help="XOR each payload lane with the B400 LFSR; check it as a splat")
+    cmd.add_argument("file", help="a BTCX container, e.g. data/20180208_1142.bin (file 62)")
+    cmd.add_argument(
+        "--states",
+        type=hex_list,
+        help="one hex start state per lane, e.g. 1F25,02D2,6089,B161 (default: the embedded key)",
+    )
+    cmd.add_argument("--ply", action="store_true", help="write out/<file>.ply for a splat viewer")
+    cmd.add_argument(
+        "--bin", action="store_true", help="write the unmasked payload to out/<file>.unmasked.bin"
+    )
+    cmd.set_defaults(fn=cmd_unmask)
+
+    cmd = sub.add_parser("keysearch", help="try every B400 LFSR phase on each lane; a key is an outlier")
+    cmd.add_argument("file", help="a BTCX container")
+    cmd.add_argument("--start", type=int, default=0, help="first payload word of the window (default 0)")
+    cmd.add_argument(
+        "--words",
+        type=int,
+        default=keysearch.WINDOW,
+        help=f"window length, at most {lfsr.PERIOD:,} (default {keysearch.WINDOW:,})",
+    )
+    cmd.add_argument(
+        "--z",
+        type=float,
+        default=keysearch.OUTLIER_Z,
+        help=f"z above which a phase is an outlier (default {keysearch.OUTLIER_Z:g})",
+    )
+    cmd.set_defaults(fn=cmd_keysearch)
+
+    cmd = sub.add_parser("glyphs", help="parse 003_state.bin and render its strokes, signs and rows as SVG")
+    cmd.add_argument("file", help="data/003_state.bin")
+    cmd.set_defaults(fn=cmd_glyphs)
+
+    cmd = sub.add_parser("notes", help="index the creator's notes page and search it")
+    actions = cmd.add_subparsers(required=True, metavar="ACTION")
+    action = actions.add_parser("build", help="load the notes page into out/notes.sqlite")
+    action.set_defaults(fn=cmd_notes_build)
+    action = actions.add_parser("search", help="list every transcript line that contains TERM")
+    action.add_argument("term")
+    action.set_defaults(fn=cmd_notes_search)
+    action = actions.add_parser("pairs", help="terms shared by a few files, with the lines that use them")
+    action.add_argument("--max-files", type=int, default=3, help="most files a term may span (default 3)")
+    action.add_argument("--limit", type=int, default=40, help="terms to list (default 40)")
+    action.set_defaults(fn=cmd_notes_pairs)
+    return root
+
+
+def main() -> None:
+    args = parser().parse_args()
+    try:
+        args.fn(args)
+    except Error as e:
+        sys.exit(f"btcx: {e}")
+    except OSError as e:
+        sys.exit(f"btcx: {e.filename}: {e.strerror}" if e.filename else f"btcx: {e}")

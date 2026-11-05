@@ -11,3 +11,19 @@ btcx = "btcx.cli:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]
+
+[tool.ruff]
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["SIM905"]  # a stop-word list reads better as one string split on whitespace
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

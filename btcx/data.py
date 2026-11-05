@@ -1,42 +1,77 @@
-"""Published btcx-files at a pinned commit, checked by SHA-256."""
+"""The published btcx-files inputs, fetched at a pinned commit and checked by SHA-256.
+
+data/ and out/ are in the project directory, whatever the current directory is.
+"""
 
 from hashlib import sha256
 from pathlib import Path
+from urllib.error import URLError
 from urllib.request import urlopen
 
+from . import Error
+
+ROOT = Path(__file__).resolve().parent.parent
+DATA = ROOT / "data"
+OUT = ROOT / "out"
+
+F003 = "003_state.bin"
+F306 = "306_state.bin"
+F62 = "20180208_1142.bin"
+SAMPLES_8K = ["20180213_0417_8k.bin", "20180219_2258_8k.bin"]
+NOTES = "index.html"  # the creator edits the notes page often, so it comes from main, unpinned
+
+REPO = "https://raw.githubusercontent.com/suebtwist/btcx-files"
 COMMIT = "2d55483e2ad991c4cb9f4dd341d67d0258610b7c"
-BASE = f"https://raw.githubusercontent.com/suebtwist/btcx-files/{COMMIT}/"
-DATA = Path("data")
-
-FILES = {
-    "003_state.bin": "2d0863b4f8bc9605e012f0ea8782f9bda6da5365465d492dcc27990237e54374",
-    "306_state.bin": "d5c379bc98667f7274a8b87f006ff6ce1425a7d3f500a12373a85def931946e9",
-    "20180208_1142.bin": "c945b02e56ee9ecc649149c854f235cfd305a896d86e38a334a97f6111e57fae",
-    "20180213_0417_8k.bin": "d5fc3ac52552b7c5f48115481664d562a11c079ba7618aad8d4ddb9fa7ea1f3c",
-    "20180219_2258_8k.bin": "26973b90ace2f091882bc0300ee62404e5a3329e5e3caf9496933f902b7c1b53",
-    "index.html": None,  # the notes page changes often; no pin
+PINNED = {
+    F003: "2d0863b4f8bc9605e012f0ea8782f9bda6da5365465d492dcc27990237e54374",
+    F306: "d5c379bc98667f7274a8b87f006ff6ce1425a7d3f500a12373a85def931946e9",
+    F62: "c945b02e56ee9ecc649149c854f235cfd305a896d86e38a334a97f6111e57fae",
+    SAMPLES_8K[0]: "d5fc3ac52552b7c5f48115481664d562a11c079ba7618aad8d4ddb9fa7ea1f3c",
+    SAMPLES_8K[1]: "26973b90ace2f091882bc0300ee62404e5a3329e5e3caf9496933f902b7c1b53",
 }
+INPUTS = [*PINNED, NOTES]
 
 
-def fetch(names=None):
+def digest(body: bytes) -> str:
+    return sha256(body).hexdigest()
+
+
+def fetch(names: list[str]) -> None:
+    """Download the named inputs, or all of them, to data/. A pinned file is checked."""
     DATA.mkdir(exist_ok=True)
-    for name in names or FILES:
+    for name in names or INPUTS:
+        if name not in INPUTS:
+            raise Error(f"{name} is not a published input; known: {', '.join(INPUTS)}")
         path = DATA / name
-        want = FILES[name]
-        if path.exists() and (want is None or sha256(path.read_bytes()).hexdigest() == want):
+        want = PINNED.get(name)
+        if want and path.exists() and digest(path.read_bytes()) == want:
             print(f"ok      {name}")
             continue
-        url = BASE + name if want else f"https://raw.githubusercontent.com/suebtwist/btcx-files/main/{name}"
-        body = urlopen(url).read()
-        got = sha256(body).hexdigest()
-        if want and got != want:
-            raise SystemExit(f"{name}: sha256 {got} does not match pinned {want}")
+        try:
+            with urlopen(f"{REPO}/{COMMIT if want else 'main'}/{name}", timeout=60) as response:
+                body = response.read()
+        except URLError as e:
+            raise Error(
+                f"cannot download {name}: {e.reason}; check the network and run btcx fetch again"
+            ) from None
+        if want and digest(body) != want:
+            raise Error(f"{name}: SHA-256 {digest(body)} does not match the pin {want}")
         path.write_bytes(body)
-        print(f"fetched {name} ({len(body)} bytes)")
+        print(f"fetched {name} ({len(body):,} bytes{'' if want else ', unpinned'})")
 
 
-def path(name):
-    p = DATA / name
-    if not p.exists():
-        raise SystemExit(f"{p} missing; run: btcx fetch")
-    return p
+def read(name: str) -> bytes:
+    """The bytes of a published input in data/. A pinned file must match its SHA-256."""
+    path = DATA / name
+    if not path.exists():
+        raise Error(f"{path} is missing; run: btcx fetch")
+    body = path.read_bytes()
+    if name in PINNED and digest(body) != PINNED[name]:
+        raise Error(f"{path} does not match its pinned SHA-256; run: btcx fetch")
+    return body
+
+
+def pin_of(body: bytes) -> str | None:
+    """The name of the pinned input with these bytes, or None."""
+    body_digest = digest(body)
+    return next((name for name, want in PINNED.items() if want == body_digest), None)

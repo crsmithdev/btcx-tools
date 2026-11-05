@@ -1,128 +1,211 @@
 """003_state.bin, "the writing file": a base-60 stroke library, signs and placements.
 
-Layout (found by players in btcx-files #5 and #15; field meanings below are inferred):
+Layout (found by players in btcx-files #5 and #15; field meanings are inferred):
 23 rows x 5 lanes x 60 bytes. Byte 0 of each 60-byte block is a header; the rest of each
-lane, joined over the rows, is one stream. Records run across the 5 streams in parallel.
-Each record ID is (lane1[0], lane2[0]).
+lane, joined over the rows, is one stream. A record runs across the 5 streams in parallel
+and ends with a checksum: the sum of every other byte of the record, mod 60.
+A record ID is (lane1[0], lane2[0]).
 
 type 50  stroke     lane0/lane1[2:-1] = dx+30 / dy+30, lane2[2:-1] = pen (0 move, 1 draw),
-                    lane3[2:-1] = width (3-8), lane2[1] / lane3[1] = bounding width / height
-type 51  sign       column 2 = sign header; columns 3..-2 each place one stroke:
-                    (lane0, lane1) = stroke ID, (lane2, lane3) = x, y in a 60 x 60 cell,
-                    lane4 = 0-7 (meaning unknown)
-type 52  placement  (lane0[1], lane1[1]) = sign ID, lane2[1] = row 0-6, lane2[2] = baseline
-type 49  ruler      eight tables, purpose unknown
+                    lane3[2:-1] = width (3-8)
+type 51  sign       columns 3..-2 each place one stroke: (lane0, lane1) = stroke ID,
+                    (lane2, lane3) = x, y in a 60 x 60 cell, lane4 = 0-7 (meaning unknown)
+type 52  placement  (lane0[1], lane1[1]) = sign ID, lane2[1] = row
+type 49  ruler      ends at the first 58 in lane 0; purpose unknown
 type 48  one record, purpose unknown
+59       end of the records
 """
 
+from collections import Counter
+from collections.abc import Callable
+from dataclasses import dataclass
 from itertools import accumulate
 
+import numpy as np
 
-def records(data: bytes):
-    if len(data) != 6900:
-        raise ValueError("003_state.bin is 6900 bytes")
-    streams = [b"".join(data[r * 300 + l * 60 + 1:r * 300 + l * 60 + 60] for r in range(23))
-               for l in range(5)]
-    off, out = 0, []
-    s0 = streams[0]
-    while s0[off] != 59:
-        op = s0[off]
-        if op == 52:
+from . import Error
+
+ROWS, LANES, BLOCK = 23, 5, 60
+SIZE = ROWS * LANES * BLOCK
+STROKE, SIGN, PLACEMENT, RULER, END = 50, 51, 52, 49, 59
+RULER_END = 58
+CHECKSUM_MOD = 60
+DELTA = 30  # stroke steps are stored as d + 30
+SHEET_COLS = 11
+STROKE_CELL, STROKE_SCALE = 60, 3
+SIGN_CELL, SIGN_SCALE = 90, 1.15
+ROW_CELL, ROW_SCALE, ROW_GAP = 70, 0.95, 14
+
+Id = tuple[int, int]
+
+
+@dataclass(frozen=True)
+class Stroke:
+    rec: int
+    points: list[tuple[int, int, int, int]]  # x, y, pen, width
+
+
+@dataclass(frozen=True)
+class Part:
+    stroke: Id
+    x: int
+    y: int
+
+
+@dataclass(frozen=True)
+class Sign:
+    rec: int
+    parts: list[Part]
+
+
+@dataclass(frozen=True)
+class Placement:
+    sign: Id
+    row: int
+
+
+@dataclass(frozen=True)
+class Glyphs:
+    types: dict[int, int]  # record type -> count
+    strokes: dict[Id, Stroke]
+    signs: dict[Id, Sign]
+    placements: list[Placement]
+
+    def stroke_references(self) -> list[Id]:
+        return [part.stroke for sign in self.signs.values() for part in sign.parts]
+
+    def unresolved(self) -> tuple[int, int]:
+        """Stroke references in signs, and sign references in placements, that match no record."""
+        strokes = sum(ref not in self.strokes for ref in self.stroke_references())
+        signs = sum(p.sign not in self.signs for p in self.placements)
+        return strokes, signs
+
+
+def _records(data: bytes) -> list[list[list[int]]]:
+    if len(data) != SIZE:
+        raise Error(f"not 003_state.bin: expected {SIZE} bytes, got {len(data):,}")
+    blocks = np.frombuffer(data, np.uint8).reshape(ROWS, LANES, BLOCK)[:, :, 1:]  # drop block headers
+    streams = [blocks[:, lane].tobytes() for lane in range(LANES)]
+    lane0, off, out = streams[0], 0, []
+    while lane0[off] != END:
+        kind = lane0[off]
+        if kind == PLACEMENT:
             n = 4
-        elif op in (50, 51):
-            n = 3 + s0[off + 1] + (op == 51)
-        elif op == 49:
-            n = s0.index(58, off + 2) - off + 1
+        elif kind in (STROKE, SIGN):
+            n = 3 + lane0[off + 1] + (kind == SIGN)
+        elif kind == RULER:
+            n = lane0.find(RULER_END, off + 2) - off + 1
         else:
             n = 5
-        rec = [list(s[off:off + n]) for s in streams]
-        if rec[4][-1] != sum(sum(l[:-1]) for l in rec) % 60:
-            raise ValueError(f"checksum fails at record {len(out)}")
+        if n < 1 or off + n >= len(lane0):
+            raise Error(f"not 003_state.bin: record {len(out)} runs past the end of the stream")
+        rec = [list(s[off : off + n]) for s in streams]
+        if rec[4][-1] != sum(sum(lane[:-1]) for lane in rec) % CHECKSUM_MOD:
+            raise Error(f"not 003_state.bin: checksum fails at record {len(out)}")
         out.append(rec)
         off += n
     return out
 
 
-def parse(data: bytes):
-    recs = records(data)
-    strokes, signs, places = {}, {}, []
+def parse(data: bytes) -> Glyphs:
+    recs = _records(data)
+    if not recs:
+        raise Error("not 003_state.bin: it holds no records")
+    strokes, signs, placements = {}, {}, []
     for i, r in enumerate(recs):
         rid = (r[1][0], r[2][0])
-        if r[0][0] == 50:
-            xs = [0] + list(accumulate(v - 30 for v in r[0][3:-1]))
-            ys = [0] + list(accumulate(v - 30 for v in r[1][3:-1]))
-            strokes[rid] = dict(rec=i, pts=list(zip(xs, ys, r[2][2:-1], r[3][2:-1])),
-                                w=r[2][1], h=r[3][1])
-        elif r[0][0] == 51:
-            parts = [dict(stroke=(r[0][c], r[1][c]), x=r[2][c], y=r[3][c], k=r[4][c])
-                     for c in range(3, len(r[0]) - 1)]
-            signs[rid] = dict(rec=i, parts=parts, head=[r[l][2] for l in range(5)])
-        elif r[0][0] == 52:
-            places.append(dict(rec=i, sign=(r[0][1], r[1][1]), row=r[2][1], base=r[2][2],
-                               a=r[0][2], b=r[3][1], c=r[4][1]))
-    return strokes, signs, places
+        if r[0][0] == STROKE:
+            xs = accumulate(v - DELTA for v in r[0][2:-1])
+            ys = accumulate(v - DELTA for v in r[1][2:-1])
+            strokes[rid] = Stroke(i, list(zip(xs, ys, r[2][2:-1], r[3][2:-1], strict=True)))
+        elif r[0][0] == SIGN:
+            parts = [Part((r[0][c], r[1][c]), r[2][c], r[3][c]) for c in range(3, len(r[0]) - 1)]
+            signs[rid] = Sign(i, parts)
+        elif r[0][0] == PLACEMENT:
+            placements.append(Placement((r[0][1], r[1][1]), r[2][1]))
+    return Glyphs(dict(Counter(r[0][0] for r in recs)), strokes, signs, placements)
 
 
-def _paths(stroke, ox, oy, scale):
-    d, out = "", []
-    for x, y, pen, w in stroke["pts"]:
-        X, Y = ox + x * scale, oy + y * scale
-        if pen == 0 or not d:
-            if d:
-                out.append(d)
-            d = f"M{X:.1f},{Y:.1f}"
+def _paths(stroke: Stroke, ox: float, oy: float, scale: float) -> str:
+    path, out = "", []
+    for x, y, pen, _ in stroke.points:
+        point = f"{ox + x * scale:.1f},{oy + y * scale:.1f}"
+        if pen == 0 or not path:
+            if path:
+                out.append(path)
+            path = f"M{point}"
         else:
-            d += f" L{X:.1f},{Y:.1f}"
-    out.append(d)
-    width = sum(p[3] for p in stroke["pts"]) / len(stroke["pts"]) * scale * 0.4
-    return "".join(f'<path d="{p}" fill="none" stroke="currentColor" stroke-width="{width:.1f}" '
-                   'stroke-linecap="round" stroke-linejoin="round"/>' for p in out)
+            path += f" L{point}"
+    out.append(path)
+    width = sum(p[3] for p in stroke.points) / len(stroke.points) * scale * 0.4
+    return "".join(
+        f'<path d="{p}" fill="none" stroke="currentColor" stroke-width="{width:.1f}" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+        for p in out
+    )
 
 
-def _sign(signs, strokes, sid, ox, oy, scale):
-    return "".join(_paths(strokes[p["stroke"]], ox + p["x"] * scale, oy + p["y"] * scale, scale)
-                   for p in signs[sid]["parts"] if p["stroke"] in strokes)
+def _sign(glyphs: Glyphs, sign: Sign, ox: float, oy: float, scale: float) -> str:
+    return "".join(
+        _paths(glyphs.strokes[part.stroke], ox + part.x * scale, oy + part.y * scale, scale)
+        for part in sign.parts
+        if part.stroke in glyphs.strokes
+    )
 
 
-def _svg(w, h, body):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" '
-            f'style="background:#f4f1ea;color:#222;font:10px monospace">{body}</svg>\n')
+def _svg(width: float, height: float, body: str) -> str:
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}" '
+        f'style="background:#f4f1ea;color:#222;font:10px monospace">{body}</svg>\n'
+    )
 
 
-def sheet_signs(strokes, signs, cell=90, cols=11):
+def _grid(items: list, cell: int, draw: Callable[[object, int, int], str]) -> str:
+    """One labelled cell per item, SHEET_COLS to a row, in record order."""
     body = ""
-    for n, (sid, s) in enumerate(sorted(signs.items(), key=lambda kv: kv[1]["rec"])):
-        ox, oy = (n % cols) * cell, (n // cols) * cell
-        body += f'<rect x="{ox}" y="{oy}" width="{cell}" height="{cell}" fill="none" stroke="#ccc"/>'
-        body += _sign(signs, strokes, sid, ox + 10, oy + 8, 1.15)
-        body += f'<text x="{ox + 3}" y="{oy + cell - 3}" fill="#999">r{s["rec"]}</text>'
-    rows = -(-len(signs) // cols)
-    return _svg(cols * cell, rows * cell, body)
+    for n, item in enumerate(sorted(items, key=lambda item: item.rec)):
+        ox, oy = (n % SHEET_COLS) * cell, (n // SHEET_COLS) * cell
+        body += (
+            f'<rect x="{ox}" y="{oy}" width="{cell}" height="{cell}" fill="none" stroke="#ccc"/>'
+            f'<text x="{ox + 3}" y="{oy + cell - 3}" fill="#999">r{item.rec}</text>'
+        )
+        body += draw(item, ox, oy)
+    return _svg(SHEET_COLS * cell, -(-len(items) // SHEET_COLS) * cell, body)
 
 
-def sheet_strokes(strokes, cell=60, cols=11):
+def sheet_strokes(glyphs: Glyphs) -> str:
+    cell, scale = STROKE_CELL, STROKE_SCALE
+
+    def draw(stroke: Stroke, ox: int, oy: int) -> str:
+        xs, ys = [p[0] for p in stroke.points], [p[1] for p in stroke.points]
+        mid_x, mid_y = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+        return _paths(stroke, ox + cell / 2 - mid_x * scale, oy + cell / 2 - 4 - mid_y * scale, scale)
+
+    return _grid(list(glyphs.strokes.values()), cell, draw)
+
+
+def sheet_signs(glyphs: Glyphs) -> str:
+    return _grid(
+        list(glyphs.signs.values()),
+        SIGN_CELL,
+        lambda sign, ox, oy: _sign(glyphs, sign, ox + 10, oy + 8, SIGN_SCALE),
+    )
+
+
+def sheet_rows(glyphs: Glyphs) -> str:
+    """The placements by row. Order inside a row is file order: no known field gives x."""
+    cell = ROW_CELL
+    rows: dict[int, list[Placement]] = {}
+    for p in glyphs.placements:
+        rows.setdefault(p.row, []).append(p)
+    count = max(rows, default=-1) + 1
     body = ""
-    for n, (sid, s) in enumerate(sorted(strokes.items(), key=lambda kv: kv[1]["rec"])):
-        ox, oy = (n % cols) * cell, (n // cols) * cell
-        xs = [p[0] for p in s["pts"]]
-        ys = [p[1] for p in s["pts"]]
-        body += f'<rect x="{ox}" y="{oy}" width="{cell}" height="{cell}" fill="none" stroke="#ccc"/>'
-        body += _paths(s, ox + 30 - (min(xs) + max(xs)) * 1.5, oy + 26 - (min(ys) + max(ys)) * 1.5, 3)
-        body += f'<text x="{ox + 3}" y="{oy + cell - 3}" fill="#999">r{s["rec"]}</text>'
-    return _svg(cols * cell, -(-len(strokes) // cols) * cell, body)
-
-
-def sheet_rows(strokes, signs, places, cell=70):
-    """The 7 rows. Order inside a row is file order: no field is known to give x."""
-    rows = {}
-    for p in places:
-        rows.setdefault(p["row"], []).append(p)
-    width = max(len(v) for v in rows.values()) * cell + 40
-    body = ""
-    for r in range(7):
-        oy = r * (cell + 14)
+    for r in range(count):
+        oy = r * (cell + ROW_GAP)
         body += f'<text x="4" y="{oy + cell / 2}" fill="#999">{r}</text>'
         for n, p in enumerate(rows.get(r, [])):
-            if p["sign"] in signs:
-                body += _sign(signs, strokes, p["sign"], 30 + n * cell, oy + 4, 0.95)
-    return _svg(width, 7 * (cell + 14), body)
+            if p.sign in glyphs.signs:
+                body += _sign(glyphs, glyphs.signs[p.sign], 30 + n * cell, oy + 4, ROW_SCALE)
+    width = max((len(v) for v in rows.values()), default=0) * cell + 40
+    return _svg(width, count * (cell + ROW_GAP), body)

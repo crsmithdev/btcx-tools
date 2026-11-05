@@ -1,55 +1,56 @@
-"""The 16-bit Galois LFSR (mask B400) that XOR-masks each payload lane of file 62."""
+"""The 16-bit Galois LFSR (taps B400) whose bit stream XOR-masks each payload lane of file 62.
+
+One mask byte is 8 steps: before each step the low bit of the state is taken, and the 8 bits
+are packed MSB first. 8 and the period 65,535 have no common factor, so the byte sequence
+from any state visits every state once per period.
+"""
+
+from collections.abc import Iterable
+from functools import cache
 
 import numpy as np
 
+from . import Error
+
 TAPS = 0xB400
-PERIOD = 65535
+PERIOD = 65535  # also the largest state: every state but 0 is on the cycle
 
 
-def stream(state: int, words: int) -> np.ndarray:
-    """Mask bytes: the low bit before each step, 8 steps per byte, packed MSB first."""
-    out = np.empty(words, np.uint8)
-    for w in range(words):
-        v = 0
+@cache
+def _cycle() -> tuple[np.ndarray, list[int], dict[int, int]]:
+    """Mask bytes for two periods from state 1, the state at each phase, and its inverse."""
+    seq = np.empty(PERIOD, np.uint8)
+    states, state = [], 1
+    for phase in range(PERIOD):
+        states.append(state)
+        byte = 0
         for _ in range(8):
-            v = (v << 1) | (state & 1)
+            byte = (byte << 1) | (state & 1)
             state = (state >> 1) ^ (TAPS if state & 1 else 0)
-        out[w] = v
-    return out
+        seq[phase] = byte
+    return np.tile(seq, 2), states, {s: p for p, s in enumerate(states)}
 
 
-_cycle = None
+def state_at(phase: int) -> int:
+    return _cycle()[1][phase % PERIOD]
 
 
-def cycle() -> tuple[np.ndarray, dict]:
-    """One full period of mask bytes from state 1, and each state's phase in it."""
-    global _cycle
-    if _cycle is None:
-        state, phase_of = 1, {}
-        for w in range(PERIOD):
-            phase_of[state] = w
-            for _ in range(8):
-                state = (state >> 1) ^ (TAPS if state & 1 else 0)
-        if len(phase_of) != PERIOD:
-            raise RuntimeError("the byte-step sequence does not visit every state")
-        _cycle = (np.tile(stream(1, PERIOD), 2), phase_of)
-    return _cycle
+def mask_windows(words: int) -> np.ndarray:
+    """A read-only (PERIOD, words) view: row p is the mask stream from phase p."""
+    return np.lib.stride_tricks.sliding_window_view(_cycle()[0], words)[:PERIOD]
 
 
-def keystream(state: int, words: int) -> np.ndarray:
-    seq, phase_of = cycle()
-    idx = (phase_of[state] + np.arange(words)) % PERIOD
-    return seq[idx]
+def hex_states(states: Iterable[int]) -> list[str]:
+    return [f"{s:04X}" for s in states]
 
 
-def unmask(payload: np.ndarray, states) -> np.ndarray:
+def unmask(payload: np.ndarray, states: tuple[int, ...]) -> np.ndarray:
+    """XOR each lane with the mask stream from its start state."""
+    lanes = payload.shape[1]
+    if len(states) != lanes or not all(0 < s <= PERIOD for s in states):
+        raise Error(f"give {lanes} start states from 0001 to {PERIOD:04X}, one per lane")
+    seq, _, phase_of = _cycle()
     out = payload.copy()
-    for lane, s in enumerate(states):
-        out[:, lane] ^= keystream(s, len(payload))
+    for lane, state in enumerate(states):
+        out[:, lane] ^= seq[(phase_of[state] + np.arange(len(payload))) % PERIOD]
     return out
-
-
-def states_from_anomaly(sep: bytes):
-    """Eight separator bytes XOR A5, read as four little-endian 16-bit states."""
-    b = bytes(x ^ 0xA5 for x in sep)
-    return tuple(b[i] | b[i + 1] << 8 for i in range(0, 8, 2))
