@@ -10,8 +10,8 @@ LLM-written padding.
 
 ## The toolkit
 
-1. **A claim has a check or a grade.** Each finding in the README, the
-   ledger or command output is reproduced by `btcx verify` from the pinned
+1. **A claim has a check or a grade.** Each finding in the README or
+   command output is reproduced by `btcx verify` from the pinned
    files, or it has the grade `likely` or `guess` where it is written. A
    field meaning that the creator did not state is marked as inferred.
    Test: a change fails this rule when it adds a statement of fact that no
@@ -60,14 +60,13 @@ LLM-written padding.
    Test: a change fails this rule when a result depends on an input that is
    neither pinned nor named as unpinned.
 
-7. **Neutral voice.** The toolkit reports what the files contain. It does
-   not write in the voice of the text in the files, and it does not try to
-   identify the people who made them.
-   Test: a change fails this rule when it writes text in the voice of the
-   source material, or collects data about the creators as people.
+7. **No data about the creators.** The toolkit does not try to identify
+   the people who made the files.
+   Test: a change fails this rule when it collects data about the creators
+   as people.
 
 8. **Structured over text.** A command that produces findings can emit JSON.
-   `verify` and the ledger read that JSON; nothing parses printed output.
+   Nothing parses printed output.
    Test: a change fails this rule when one module parses free text that
    another module printed.
 

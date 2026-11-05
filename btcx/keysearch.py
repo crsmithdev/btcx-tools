@@ -23,9 +23,7 @@ class Lane:
     outlier: bool
 
 
-def search(
-    payload: np.ndarray, start: int, words: int = WINDOW, z: float = OUTLIER_Z
-) -> tuple[int, list[Lane]]:
+def search(payload: np.ndarray, start: int, words: int = WINDOW) -> tuple[int, list[Lane]]:
     """Score every phase on words start..start+words-1 of each lane, in parallel.
 
     Returns the number of words scored (fewer at the end of the payload) and one Lane per lane.
@@ -46,7 +44,7 @@ def search(
         if spread == 0:
             raise Error(f"a {len(column):,}-word window scores every phase the same; use a longer one")
         robust_z = (median - float(scores[best])) / spread
-        return Lane(lfsr.state_at(best - start), float(scores[best]), median, robust_z, robust_z > z)
+        return Lane(lfsr.state_at(best - start), float(scores[best]), median, robust_z, robust_z > OUTLIER_Z)
 
     with ThreadPoolExecutor() as pool:  # numpy releases the GIL in the scoring
         return len(window), list(pool.map(lane, window.T))

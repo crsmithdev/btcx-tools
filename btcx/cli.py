@@ -70,17 +70,14 @@ def cmd_unmask(args: argparse.Namespace) -> None:
             f"splat       {len(unmasked.rows):,} rows, {unmasked.unit_quaternions:,} unit quaternions, "
             f"{'all' if unmasked.is_splat else 'not all'} finite and unit"
         )
-    stem = Path(args.file).stem
-    if args.bin:
-        write(f"{stem}.unmasked.bin", unmasked.plain.tobytes())
     if args.ply:
-        write(f"{stem}.ply", splat.ply(unmasked))
+        write(f"{Path(args.file).stem}.ply", splat.ply(unmasked))
         print(f"next        open it in {SUPERSPLAT}; the colour is one channel copied to RGB")
 
 
 def cmd_keysearch(args: argparse.Namespace) -> None:
     payload = Container(load(args.file)).payload
-    words, lanes = keysearch.search(payload, args.start, args.words, args.z)
+    words, lanes = keysearch.search(payload, args.start, args.words)
     print(
         f"window      words {args.start:,}-{args.start + words - 1:,} ({words:,} words), "
         f"B400 LFSR, all {lfsr.PERIOD:,} phases per lane"
@@ -148,9 +145,6 @@ def parser() -> argparse.ArgumentParser:
         help="one hex start state per lane, e.g. 1F25,02D2,6089,B161 (default: the embedded key)",
     )
     cmd.add_argument("--ply", action="store_true", help="write out/<file>.ply for a splat viewer")
-    cmd.add_argument(
-        "--bin", action="store_true", help="write the unmasked payload to out/<file>.unmasked.bin"
-    )
     cmd.set_defaults(fn=cmd_unmask)
 
     cmd = sub.add_parser("keysearch", help="try every B400 LFSR phase on each lane; a key is an outlier")
@@ -161,12 +155,6 @@ def parser() -> argparse.ArgumentParser:
         type=int,
         default=keysearch.WINDOW,
         help=f"window length, at most {lfsr.PERIOD:,} (default {keysearch.WINDOW:,})",
-    )
-    cmd.add_argument(
-        "--z",
-        type=float,
-        default=keysearch.OUTLIER_Z,
-        help=f"z above which a phase is an outlier (default {keysearch.OUTLIER_Z:g})",
     )
     cmd.set_defaults(fn=cmd_keysearch)
 

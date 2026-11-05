@@ -35,8 +35,8 @@ PASS  f62-blind            A blind search of all 65,535 phases on words 100,000-
 |---|---|
 | `verify [--json]` | Runs each finding in `btcx/findings.py`: claim, credit, link, check and expected result. |
 | `info FILE` | Header version, record count, entropy per lane, separator runs that are not `A5`, embedded key, base-60 regions. |
-| `unmask FILE [--states S] [--ply] [--bin]` | XORs each lane with the B400 LFSR, from the embedded key or `--states`, and checks the result as 27-float splat rows. `--ply` writes a PLY only if every row has a unit quaternion. |
-| `keysearch FILE [--start N] [--words N] [--z Z]` | Scores all 65,535 LFSR phases on a window of each lane by entropy. A real key is an outlier (z above 8). |
+| `unmask FILE [--states S] [--ply]` | XORs each lane with the B400 LFSR, from the embedded key or `--states`, and checks the result as 27-float splat rows. `--ply` writes a PLY only if every row has a unit quaternion. |
+| `keysearch FILE [--start N] [--words N]` | Scores all 65,535 LFSR phases on a window of each lane by entropy. A real key is an outlier (z above 8). |
 | `glyphs FILE` | Draws the strokes, signs and placements of `003_state.bin` as SVG. Field meanings are in `btcx/glyphs.py`. |
 
 File 62 is `20180208_1142.bin`. `uv run btcx unmask data/20180208_1142.bin --ply` writes
