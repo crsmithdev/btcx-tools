@@ -1,6 +1,7 @@
 # btcx-tools
 
 Read [PRINCIPLES.md](PRINCIPLES.md) before a design, review or code change. Its rules win over habit.
+Read [STYLE.md](STYLE.md) before you write code.
 
 ## Development
 
