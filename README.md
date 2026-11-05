@@ -1,9 +1,9 @@
 # btcx-tools
 
 Analysis tools for the binary files published in btcx-files
-([repo](https://github.com/suebtwist/btcx-files), [notes page](https://suebtwist.github.io/btcx-files),
-[channel](https://www.youtube.com/@siebfothers)). `btcx verify` reproduces each finding below from the
-published files, fetched at commit `2d55483` and checked by SHA-256.
+([repo](https://github.com/suebtwist/btcx-files), [channel](https://www.youtube.com/@siebfothers)).
+`btcx verify` reproduces each finding below from the published files, fetched at commit `2d55483` and
+checked by SHA-256.
 
 ## Install
 
@@ -25,7 +25,7 @@ PASS  306-countdown        306_state.bin breaks the A5 separators in 3 identical
 ## What it touches
 
 - `fetch` downloads five `.bin` files from `raw.githubusercontent.com/suebtwist/btcx-files` at the pinned
-  commit, and the notes page `index.html` from `main`, to `data/`. No other command uses the network.
+  commit to `data/`, and checks each by SHA-256. No other command uses the network.
 - The other commands read the files you name and write only to `out/`.
 - The repo does not hold the creator's files. Each user fetches them from the creator's repo.
 
@@ -38,7 +38,6 @@ PASS  306-countdown        306_state.bin breaks the A5 separators in 3 identical
 | `unmask FILE [--states S] [--ply] [--bin]` | XORs each lane with the B400 LFSR, from the embedded key or `--states`, and checks the result as 27-float splat rows. `--ply` writes a PLY only if every row has a unit quaternion. |
 | `keysearch FILE [--start N] [--words N] [--z Z]` | Scores all 65,535 LFSR phases on a window of each lane by entropy. A real key is an outlier (z above 8). |
 | `glyphs FILE` | Draws the strokes, signs and placements of `003_state.bin` as SVG. Field meanings are in `btcx/glyphs.py`. |
-| `notes build\|search TERM\|pairs` | Indexes the notes page transcript in `out/notes.sqlite`. `pairs` lists terms that 2 or 3 files share and marks the lines the page does not cite yet. |
 
 File 62 is `20180208_1142.bin`. `uv run btcx unmask data/20180208_1142.bin --ply` writes
 `out/20180208_1142.ply`. Open it in [SuperSplat](https://superspl.at/editor).

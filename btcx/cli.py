@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import Error, data, glyphs, keysearch, lfsr, notes, splat
+from . import Error, data, glyphs, keysearch, lfsr, splat
 from .container import LANES, Container
 from .findings import FINDINGS
 
@@ -107,28 +107,6 @@ def cmd_glyphs(args: argparse.Namespace) -> None:
     print("next        open the SVGs in a browser")
 
 
-NOTES_DB = data.OUT / "notes.sqlite"
-
-
-def cmd_notes_build(args: argparse.Namespace) -> None:
-    page = data.read(data.NOTES)
-    data.OUT.mkdir(exist_ok=True)
-    n = notes.build(page.decode("utf8"), NOTES_DB)
-    print(f"{n} passages -> {NOTES_DB} (notes page sha256 {data.digest(page)[:12]}, not pinned)")
-
-
-def cmd_notes_search(args: argparse.Namespace) -> None:
-    for key, time, speaker, text, url in notes.search(NOTES_DB, args.term):
-        print(f"{key}:{time:<6} {speaker[:28]:<28} {text}\n{'':>8}{url}")
-
-
-def cmd_notes_pairs(args: argparse.Namespace) -> None:
-    for term, files, lines in notes.pairs(NOTES_DB, args.max_files)[: args.limit]:
-        print(f"\n{term}  ({', '.join(files)})")
-        for key, time, text, cited in lines:
-            print(f"  {'cited   ' if cited else 'uncited '}{key}:{time:<6} {text[:90]}")
-
-
 def cmd_verify(args: argparse.Namespace) -> None:
     results = []
     for f in FINDINGS:
@@ -196,17 +174,6 @@ def parser() -> argparse.ArgumentParser:
     cmd.add_argument("file", help="data/003_state.bin")
     cmd.set_defaults(fn=cmd_glyphs)
 
-    cmd = sub.add_parser("notes", help="index the creator's notes page and search it")
-    actions = cmd.add_subparsers(required=True, metavar="ACTION")
-    action = actions.add_parser("build", help="load the notes page into out/notes.sqlite")
-    action.set_defaults(fn=cmd_notes_build)
-    action = actions.add_parser("search", help="list every transcript line that contains TERM")
-    action.add_argument("term")
-    action.set_defaults(fn=cmd_notes_search)
-    action = actions.add_parser("pairs", help="terms shared by a few files, with the lines that use them")
-    action.add_argument("--max-files", type=int, default=3, help="most files a term may span (default 3)")
-    action.add_argument("--limit", type=int, default=40, help="terms to list (default 40)")
-    action.set_defaults(fn=cmd_notes_pairs)
     return root
 
 

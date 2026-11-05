@@ -18,7 +18,6 @@ F003 = "003_state.bin"
 F306 = "306_state.bin"
 F62 = "20180208_1142.bin"
 SAMPLES_8K = ["20180213_0417_8k.bin", "20180219_2258_8k.bin"]
-NOTES = "index.html"  # the creator edits the notes page often, so it comes from main, unpinned
 
 REPO = "https://raw.githubusercontent.com/suebtwist/btcx-files"
 COMMIT = "2d55483e2ad991c4cb9f4dd341d67d0258610b7c"
@@ -29,7 +28,6 @@ PINNED = {
     SAMPLES_8K[0]: "d5fc3ac52552b7c5f48115481664d562a11c079ba7618aad8d4ddb9fa7ea1f3c",
     SAMPLES_8K[1]: "26973b90ace2f091882bc0300ee62404e5a3329e5e3caf9496933f902b7c1b53",
 }
-INPUTS = [*PINNED, NOTES]
 
 
 def digest(body: bytes) -> str:
@@ -37,27 +35,27 @@ def digest(body: bytes) -> str:
 
 
 def fetch(names: list[str]) -> None:
-    """Download the named inputs, or all of them, to data/. A pinned file is checked."""
+    """Download the named inputs, or all of them, to data/, each checked by SHA-256."""
     DATA.mkdir(exist_ok=True)
-    for name in names or INPUTS:
-        if name not in INPUTS:
-            raise Error(f"{name} is not a published input; known: {', '.join(INPUTS)}")
+    for name in names or PINNED:
+        if name not in PINNED:
+            raise Error(f"{name} is not a published input; known: {', '.join(PINNED)}")
         path = DATA / name
-        want = PINNED.get(name)
-        if want and path.exists() and digest(path.read_bytes()) == want:
+        want = PINNED[name]
+        if path.exists() and digest(path.read_bytes()) == want:
             print(f"ok      {name}")
             continue
         try:
-            with urlopen(f"{REPO}/{COMMIT if want else 'main'}/{name}", timeout=60) as response:
+            with urlopen(f"{REPO}/{COMMIT}/{name}", timeout=60) as response:
                 body = response.read()
         except URLError as e:
             raise Error(
                 f"cannot download {name}: {e.reason}; check the network and run btcx fetch again"
             ) from None
-        if want and digest(body) != want:
+        if digest(body) != want:
             raise Error(f"{name}: SHA-256 {digest(body)} does not match the pin {want}")
         path.write_bytes(body)
-        print(f"fetched {name} ({len(body):,} bytes{'' if want else ', unpinned'})")
+        print(f"fetched {name} ({len(body):,} bytes)")
 
 
 def read(name: str) -> bytes:
@@ -66,7 +64,7 @@ def read(name: str) -> bytes:
     if not path.exists():
         raise Error(f"{path} is missing; run: btcx fetch")
     body = path.read_bytes()
-    if name in PINNED and digest(body) != PINNED[name]:
+    if digest(body) != PINNED[name]:
         raise Error(f"{path} does not match its pinned SHA-256; run: btcx fetch")
     return body
 

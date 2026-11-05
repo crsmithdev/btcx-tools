@@ -23,7 +23,6 @@ CASES = {
     "start past end": ["keysearch", F62, "--start", "99999999"],
     "window too long": ["keysearch", F62, "--words", "70000"],
     "window too short": ["keysearch", F62, "--words", "1"],
-    "search no term": ["notes", "search"],
 }
 
 
