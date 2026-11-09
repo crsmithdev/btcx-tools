@@ -30,7 +30,7 @@ PASS  f62-blind            A blind search of all 65,535 phases on words 100,000-
 
 - `fetch` downloads five `.bin` files from `raw.githubusercontent.com/suebtwist/btcx-files` at the pinned
   commit to `data/`, and checks each by SHA-256. No other command uses the network.
-- The other commands read the files you name and write only to `out/`.
+- The other commands read the files you name and write only to `out/`; `ledger` writes to `site/`.
 - The repo does not hold the creator's files. Each user fetches them from the creator's repo.
 
 ## Commands
@@ -42,6 +42,7 @@ PASS  f62-blind            A blind search of all 65,535 phases on words 100,000-
 | `unmask FILE [--states S] [--ply]` | XORs each lane with the B400 LFSR, from the embedded key or `--states`, and checks the result as 27-float splat rows. `--ply` writes a PLY only if every row has a unit quaternion. |
 | `keysearch FILE [--start N] [--words N]` | Scores all 65,535 LFSR phases on a window of each lane by entropy. A real key is an outlier (z above 8). |
 | `render [--size WxH] [--fov D] [--eye x,y,z] [--aim x,y,z] [--out NAME]` | Draws file 62's splat to a greyscale PNG in `out/` with the 3DGS reference rasterizer, written in numpy. The camera conventions and the default capture view (960x720, vertical FOV 38, eye at the origin, aim -0.105,0.015,1) are Helo3301's, [#12](https://github.com/suebtwist/btcx-files/issues/12). |
+| `ledger [--out DIR]` | Writes `site/index.html`, the [claim ledger](https://crsmithdev.github.io/btcx-tools/): each claim about the files posted upstream, with its first poster, grade and status. |
 | `glyphs FILE` | Draws the strokes, signs and placements of `003_state.bin` as SVG. Field meanings are in `btcx/glyphs.py`. |
 
 File 62 is `20180208_1142.bin`. `uv run btcx unmask data/20180208_1142.bin --ply` writes
@@ -57,6 +58,7 @@ Credit goes to the first post of each finding.
 | Base-60 digits in lanes 0-1 at records 817-864 of both 8k samples | anthony-lang09, [#5](https://github.com/suebtwist/btcx-files/issues/5) |
 | A minute counter in lane 1 of label records 4-6 of the 8k samples: 144,000 and 153,761, a difference of 9,761 minutes, the gap between the file-name times | Helo3301, [#15](https://github.com/suebtwist/btcx-files/issues/15) |
 | A countdown (59, 58, 57) in 3 separator runs of `306_state.bin` | anthony-lang09, [#5](https://github.com/suebtwist/btcx-files/issues/5) |
+| The section table of `306_state.bin`: lane 0 uint32 at bytes 432-479 give three (id, offset, length, count) rows, contiguous from 16,384 to the 25,165,824-byte payload end | NameLucky2205, [#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6137385178) |
 | 239 framed records with a mod-60 checksum in `003_state.bin`: 53 of type 50, 88 of type 51, 89 of type 52, 8 of type 49 and 1 of type 48 | NameLucky2205, [#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6137385178) |
 | File 62 unmasked by four B400 LFSRs: 184,148 rows of 27 float32, read as a Gaussian splat | NameLucky2205, [#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6185551572) |
 | File 62's key is in its separators at records 2048-2055 | Helo3301, [#12](https://github.com/suebtwist/btcx-files/issues/12) |

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import Error, data, glyphs, keysearch, lfsr, render, splat
+from . import Error, data, glyphs, keysearch, ledger, lfsr, render, splat
 from .container import LANES, Container
 from .findings import FINDINGS
 
@@ -161,6 +161,12 @@ def cmd_verify(args: argparse.Namespace) -> None:
         raise Error(f"{failed} of {len(results)} findings did not reproduce")
 
 
+def cmd_ledger(args: argparse.Namespace) -> None:
+    path, rows = ledger.write(args.out)
+    print(f"ledger      {ledger.summary(rows)}")
+    print(f"wrote       {path}")
+
+
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="btcx", description=__doc__)
     sub = root.add_subparsers(required=True, metavar="COMMAND")
@@ -223,6 +229,12 @@ def parser() -> argparse.ArgumentParser:
         "--out", default=f"{Path(data.F62).stem}.png", help="file name in out/ (default %(default)s)"
     )
     cmd.set_defaults(fn=cmd_render)
+
+    cmd = sub.add_parser("ledger", help="write the claim ledger, one HTML page, to site/index.html")
+    cmd.add_argument(
+        "--out", type=Path, default=data.ROOT / "site", help="directory for index.html (default: site/)"
+    )
+    cmd.set_defaults(fn=cmd_ledger)
 
     return root
 
