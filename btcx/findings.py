@@ -6,14 +6,16 @@ finding expects. Credit goes to the contributor who first posted the finding, wi
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from functools import cache
 
 import numpy as np
 
 from . import Error, data, glyphs, keysearch, lfsr, splat
-from .container import Container
+from .container import BASE, Container
 
 F62_STATES = (0x1F25, 0x02D2, 0x6089, 0xB161)
+COUNTER = slice(4, 7)  # label records of the minute counter, in lane 1
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,24 @@ def _grey() -> dict:
     }
 
 
+def _counter(name: str) -> int:
+    """The minute counter of an 8k sample: lane 1 of label records 4-6, as base-60 digits."""
+    container = _container(name)
+    start = container.base60_regions()[0][0]
+    hi, mid, lo = container.payload[start:][COUNTER, 1].tolist()
+    return (hi * BASE + mid) * BASE + lo
+
+
+def _clock() -> dict:
+    minutes = [_counter(n) for n in data.SAMPLES_8K]
+    times = [datetime.strptime(n[:13], "%Y%m%d_%H%M") for n in data.SAMPLES_8K]
+    return {
+        "minutes": minutes,
+        "difference": minutes[1] - minutes[0],
+        "name_gap": (times[1] - times[0]) // timedelta(minutes=1),
+    }
+
+
 ISSUE_5 = "https://github.com/suebtwist/btcx-files/issues/5"
 
 FINDINGS = [
@@ -115,6 +135,16 @@ FINDINGS = [
         ISSUE_5,
         [[817, 864], [817, 864]],
         lambda: [list(r) for n in data.SAMPLES_8K for r in _container(n).base60_regions()],
+    ),
+    Finding(
+        "label-clock",
+        "In the 8k samples, lane 1 of label records 4-6 reads 40;0;0 = 144,000 and 42;42;41 = "
+        "153,761 minutes (144,000 min = 100 days); the difference, 9,761, is the gap between the "
+        "file-name times.",
+        "Helo3301",
+        "https://github.com/suebtwist/btcx-files/issues/15",
+        {"minutes": [144000, 153761], "difference": 9761, "name_gap": 9761},
+        _clock,
     ),
     Finding(
         "306-countdown",

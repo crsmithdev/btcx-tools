@@ -18,6 +18,8 @@ uv run btcx verify    # reproduce every finding; exit status 1 if one fails
 ```text
 PASS  base60-8k            In both 8k samples, lanes 0 and 1 hold only base-60 digits at records 817-864.
       anthony-lang09, https://github.com/suebtwist/btcx-files/issues/5
+PASS  label-clock          In the 8k samples, lane 1 of label records 4-6 reads 40;0;0 = 144,000 and 42;42;41 = 153,761 minutes (144,000 min = 100 days); the difference, 9,761, is the gap between the file-name times.
+      Helo3301, https://github.com/suebtwist/btcx-files/issues/15
 PASS  f62-grey             In file 62, each of the 2,812,518 nonzero grey lighting coefficients (fields 11-26) is a float32 quotient by 3, as a float32 average of three values gives; in fields 0-10, 1,729,242 of 2,025,628 are.
       Helo3301, https://github.com/suebtwist/btcx-files/issues/12
 PASS  f62-blind            A blind search of all 65,535 phases on words 100,000-104,095 finds the same four states.
@@ -52,6 +54,7 @@ Credit goes to the first post of each finding.
 |---|---|
 | File 62, both 8k samples and `306_state.bin` share a 15-byte sync word, then a version byte: `05`, and `07` on `306_state.bin` | anthony-lang09, [#5](https://github.com/suebtwist/btcx-files/issues/5) |
 | Base-60 digits in lanes 0-1 at records 817-864 of both 8k samples | anthony-lang09, [#5](https://github.com/suebtwist/btcx-files/issues/5) |
+| A minute counter in lane 1 of label records 4-6 of the 8k samples: 144,000 and 153,761, a difference of 9,761 minutes, the gap between the file-name times | Helo3301, [#15](https://github.com/suebtwist/btcx-files/issues/15) |
 | A countdown (59, 58, 57) in 3 separator runs of `306_state.bin` | anthony-lang09, [#5](https://github.com/suebtwist/btcx-files/issues/5) |
 | 239 framed records with a mod-60 checksum in `003_state.bin`: 53 of type 50, 88 of type 51, 89 of type 52, 8 of type 49 and 1 of type 48 | NameLucky2205, [#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6137385178) |
 | File 62 unmasked by four B400 LFSRs: 184,148 rows of 27 float32, read as a Gaussian splat | NameLucky2205, [#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6185551572) |
