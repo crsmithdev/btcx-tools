@@ -8,6 +8,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache
 
+import numpy as np
+
 from . import Error, data, glyphs, keysearch, lfsr, splat
 from .container import Container
 
@@ -74,6 +76,24 @@ def _outliers(name: str, starts: list[int]) -> list[list[str]]:
         lfsr.hex_states(lane.state for lane in keysearch.search(payload, start)[1] if lane.outlier)
         for start in starts
     ]
+
+
+def _thirds(values: np.ndarray) -> list[int]:
+    """How many nonzero float32 values are fl32(s / 3) for a float32 s, and how many there are."""
+    values = values[values != 0]
+    near = (values.astype(np.float64) * 3).astype(np.float32).view(np.int32)
+    hits = np.logical_or.reduce(
+        [(near + step).view(np.float32) / np.float32(3) == values for step in (-1, 0, 1)]
+    )
+    return [int(hits.sum()), len(values)]
+
+
+def _grey() -> dict:
+    rows = splat.unmask(_container(data.F62), F62_STATES).rows
+    return {
+        "fields_11_26": _thirds(rows[:, splat.DC.start :].ravel()),
+        "fields_0_10": _thirds(rows[:, : splat.DC.start].ravel()),
+    }
 
 
 ISSUE_5 = "https://github.com/suebtwist/btcx-files/issues/5"
@@ -144,6 +164,16 @@ FINDINGS = [
         "https://github.com/suebtwist/btcx-files/issues/12",
         {"record": 2048, "states": lfsr.hex_states(F62_STATES)},
         _key,
+    ),
+    Finding(
+        "f62-grey",
+        "In file 62, each of the 2,812,518 nonzero grey lighting coefficients (fields 11-26) is "
+        "a float32 quotient by 3, as a float32 average of three values gives; in fields 0-10, "
+        "1,729,242 of 2,025,628 are.",
+        "Helo3301",
+        "https://github.com/suebtwist/btcx-files/issues/12",
+        {"fields_11_26": [2812518, 2812518], "fields_0_10": [1729242, 2025628]},
+        _grey,
     ),
     Finding(
         "f62-blind",

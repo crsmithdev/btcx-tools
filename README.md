@@ -18,6 +18,8 @@ uv run btcx verify    # reproduce every finding; exit status 1 if one fails
 ```text
 PASS  base60-8k            In both 8k samples, lanes 0 and 1 hold only base-60 digits at records 817-864.
       anthony-lang09, https://github.com/suebtwist/btcx-files/issues/5
+PASS  f62-grey             In file 62, each of the 2,812,518 nonzero grey lighting coefficients (fields 11-26) is a float32 quotient by 3, as a float32 average of three values gives; in fields 0-10, 1,729,242 of 2,025,628 are.
+      Helo3301, https://github.com/suebtwist/btcx-files/issues/12
 PASS  f62-blind            A blind search of all 65,535 phases on words 100,000-104,095 finds the same four states.
       aleph, https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817
 ```
@@ -55,6 +57,7 @@ Credit goes to the first post of each finding.
 | File 62 unmasked by four B400 LFSRs: 184,148 rows of 27 float32, read as a Gaussian splat | NameLucky2205, [#5](https://github.com/suebtwist/btcx-files/issues/5#issuecomment-6185551572) |
 | File 62's key is in its separators at records 2048-2055 | Helo3301, [#12](https://github.com/suebtwist/btcx-files/issues/12) |
 | In `003_state.bin`, type 50 records are strokes and type 51 records are signs that place them; all 204 stroke references resolve | Helo3301, [#15](https://github.com/suebtwist/btcx-files/issues/15) |
+| Each nonzero grey lighting coefficient of file 62 (fields 11-26) is a float32 quotient by 3, as a float32 average of three values gives; 85% of the values in fields 0-10 are | Helo3301, [#12](https://github.com/suebtwist/btcx-files/issues/12) |
 | A blind phase search finds file 62's four start states from words 100,000-104,095 | aleph, [0c046ee](https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817) |
 | No B400 key outlier in `306_state.bin` in the first 4,096 words after each countdown run | aleph, [0c046ee](https://github.com/crsmithdev/btcx-tools/commit/0c046ee035efd6ef9c8aba09a1825907adfdc817) |
 
