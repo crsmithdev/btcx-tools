@@ -42,7 +42,7 @@ PASS  f62-blind            A blind search of all 65,535 phases on words 100,000-
 | `unmask FILE [--states S] [--ply]` | XORs each lane with the B400 LFSR, from the embedded key or `--states`, and checks the result as 27-float splat rows. `--ply` writes a PLY only if every row has a unit quaternion. |
 | `keysearch FILE [--start N] [--words N]` | Scores all 65,535 LFSR phases on a window of each lane by entropy. A real key is an outlier (z above 8). |
 | `render [--size WxH] [--fov D] [--eye x,y,z] [--aim x,y,z] [--out NAME]` | Draws file 62's splat to a greyscale PNG in `out/` with the 3DGS reference rasterizer, written in numpy. The camera conventions and the default capture view (960x720, vertical FOV 38, eye at the origin, aim -0.105,0.015,1) are Helo3301's, [#12](https://github.com/suebtwist/btcx-files/issues/12). |
-| `ledger [--out DIR]` | Writes `site/index.html`, the [claim ledger](https://crsmithdev.github.io/btcx-tools/): each claim about the files posted upstream, with its first poster, grade and status. |
+| `ledger [--out DIR]` | Writes `site/index.html`, the claim ledger: each claim about the files posted upstream, with its first poster, grade and status. |
 | `glyphs FILE` | Draws the strokes, signs and placements of `003_state.bin` as SVG. Field meanings are in `btcx/glyphs.py`. |
 
 File 62 is `20180208_1142.bin`. `uv run btcx unmask data/20180208_1142.bin --ply` writes
