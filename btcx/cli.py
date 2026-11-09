@@ -3,9 +3,12 @@
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
-from . import Error, data, glyphs, keysearch, lfsr, splat
+import numpy as np
+
+from . import Error, data, glyphs, keysearch, lfsr, render, splat
 from .container import LANES, Container
 from .findings import FINDINGS
 
@@ -104,6 +107,43 @@ def cmd_glyphs(args: argparse.Namespace) -> None:
     print("next        open the SVGs in a browser")
 
 
+def numbers(text: str, sep: str, count: int, kind: type) -> tuple:
+    try:
+        parts = tuple(kind(s) for s in text.split(sep))
+    except ValueError:
+        parts = ()
+    if len(parts) != count:
+        raise argparse.ArgumentTypeError(f"{text!r} is not {count} numbers separated by {sep!r}")
+    return parts
+
+
+def vector(text: str) -> tuple[float, ...]:
+    return numbers(text, ",", 3, float)
+
+
+def size(text: str) -> tuple[int, ...]:
+    width, height = numbers(text, "x", 2, int)
+    if width < 1 or height < 1:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a positive width and height")
+    return width, height
+
+
+def cmd_render(args: argparse.Namespace) -> None:
+    if not 0 < args.fov < 180:
+        raise Error(f"--fov {args.fov} is not between 0 and 180 degrees")
+    forward = np.subtract(args.aim, args.eye)
+    if not np.cross(forward, render.UP).any():
+        raise Error("the aim is at the eye or straight up or down (along y) from it; move the aim")
+    unmasked = splat.unmask(Container(load(str(data.DATA / data.F62))))
+    started = time.perf_counter()
+    image = render.render(unmasked.rows, args.size, args.fov, args.eye, args.aim)
+    print(
+        f"view        {args.size[0]}x{args.size[1]}, fov {args.fov:g}, eye {args.eye}, aim {args.aim}, "
+        f"{time.perf_counter() - started:.1f} s"
+    )
+    write(args.out, render.png(image))
+
+
 def cmd_verify(args: argparse.Namespace) -> None:
     results = []
     for f in FINDINGS:
@@ -161,6 +201,28 @@ def parser() -> argparse.ArgumentParser:
     cmd = sub.add_parser("glyphs", help="parse 003_state.bin and render its strokes, signs and rows as SVG")
     cmd.add_argument("file", help="data/003_state.bin")
     cmd.set_defaults(fn=cmd_glyphs)
+
+    cmd = sub.add_parser(
+        "render",
+        help="draw file 62's splat to a PNG in out/",
+        description="Draw file 62's splat to a greyscale PNG in out/ with the 3DGS reference rasterizer. "
+        "The camera conventions and the default capture view are Helo3301's, "
+        "https://github.com/suebtwist/btcx-files/issues/12: OpenCV axes (y down), a pinhole camera, "
+        "near plane 0.2.",
+    )
+    cmd.add_argument("--size", type=size, default=render.SIZE, help="WxH in pixels (default 960x720)")
+    cmd.add_argument("--fov", type=float, default=render.FOV, help="vertical FOV in degrees (default 38)")
+    cmd.add_argument("--eye", type=vector, default=render.EYE, help="camera position x,y,z (default 0,0,0)")
+    cmd.add_argument(
+        "--aim",
+        type=vector,
+        default=render.AIM,
+        help="point the camera looks at, x,y,z (default -0.105,0.015,1)",
+    )
+    cmd.add_argument(
+        "--out", default=f"{Path(data.F62).stem}.png", help="file name in out/ (default %(default)s)"
+    )
+    cmd.set_defaults(fn=cmd_render)
 
     return root
 

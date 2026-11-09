@@ -23,6 +23,12 @@ CASES = {
     "start past end": ["keysearch", F62, "--start", "99999999"],
     "window too long": ["keysearch", F62, "--words", "70000"],
     "window too short": ["keysearch", F62, "--words", "1"],
+    "size not WxH": ["render", "--size", "640"],
+    "size zero": ["render", "--size", "0x10"],
+    "aim not xyz": ["render", "--aim", "1,2"],
+    "fov 180": ["render", "--fov", "180"],
+    "aim at the eye": ["render", "--aim", "0,0,0"],
+    "aim straight up": ["render", "--aim", "0,-1,0"],
 }
 
 
