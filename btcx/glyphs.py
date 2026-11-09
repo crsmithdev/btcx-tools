@@ -3,7 +3,8 @@
 Layout (found by contributors in btcx-files #5 and #15; field meanings are inferred):
 23 rows x 5 lanes x 60 bytes. Byte 0 of each 60-byte block is a header; the rest of each
 lane, joined over the rows, is one stream. A record runs across the 5 streams in parallel
-and ends with a checksum: the sum of every other byte of the record, mod 60.
+and ends with a checksum: lane 4's last byte is the sum, mod 60, of the record's bytes in
+all 5 lanes and every column but the last.
 A record ID is (lane1[0], lane2[0]).
 
 type 50  stroke     lane0/lane1[2:-1] = dx+30 / dy+30, lane2[2:-1] = pen (0 move, 1 draw),
