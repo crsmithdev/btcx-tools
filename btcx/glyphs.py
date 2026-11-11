@@ -10,11 +10,18 @@ A record ID is (lane1[0], lane2[0]).
 type 50  stroke     lane0/lane1[2:-1] = dx+30 / dy+30, lane2[2:-1] = pen (0 move, 1 draw),
                     lane3[2:-1] = width (3-8)
 type 51  sign       columns 3..-2 each place one stroke: (lane0, lane1) = stroke ID,
-                    (lane2, lane3) = x, y in a 60 x 60 cell, lane4 = 0-7 (meaning unknown)
+                    (lane2, lane3) = x, y in a 60 x 60 cell, lane4 = 0-7 (meaning unknown; not a ruler
+                    index: x and y sit no nearer the marks of ruler lane4 than of a shuffled ruler)
 type 52  placement  (lane0[1], lane1[1]) = sign ID, lane2[1] = row
-type 49  ruler      ends at the first 58 in lane 0; purpose unknown
+type 49  ruler      ends at the first 58 in lane 0; purpose unknown. In all 8 (inferred): lane0[1] = index,
+                    0-7 once each; lane0[2:-1] = marks rising from 7 to 28; lane1[1] = mark count (5-9);
+                    lane1[2] = 25; lane2[2:-1] = 2 * index + 1; lane3[0] = mark count + 1; lane3[1] = 0;
+                    lane4[1] = 0. Lane 3 of each mark stays near one level per ruler (index 1: 1-2,
+                    index 7: 32-42). The rest of lanes 1 and 4 looks random.
 type 48  one record, purpose unknown
 59       end of the records
+
+In every record of types 48-52, lanes 1-3 end with 59 minus their first byte (inferred).
 """
 
 from collections import Counter
@@ -195,7 +202,7 @@ def sheet_signs(glyphs: Glyphs) -> str:
 
 
 def sheet_rows(glyphs: Glyphs) -> str:
-    """The placements by row. Order inside a row is file order: no known field gives x."""
+    """The placements by row. Order inside a row is file order: no field of a placement, alone, gives x."""
     cell = ROW_CELL
     rows: dict[int, list[Placement]] = {}
     for p in glyphs.placements:
